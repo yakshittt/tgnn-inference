@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tgnn-inference
+  labels:
+    app: tgnn-inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tgnn-inference
+  template:
+    metadata:
+      labels:
+        app: tgnn-inference
+    spec:
+      containers:
+      - name: tgnn-inference
+        image: tgnn-inference:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 7860
+          name: http
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 7860
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 7860
+          initialDelaySeconds: 10
+          periodSeconds: 15

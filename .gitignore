@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+Final_stuff.ipynb
+.env
+.DS_Store
+*.tar

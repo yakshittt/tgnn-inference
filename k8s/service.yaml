@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tgnn-inference-service
+  labels:
+    app: tgnn-inference
+spec:
+  type: ClusterIP
+  selector:
+    app: tgnn-inference
+  ports:
+  - name: http
+    port: 7860
+    targetPort: 7860
