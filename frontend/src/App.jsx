@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Layers,
   Zap,
@@ -43,7 +43,7 @@ export default function App() {
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [nodes, setNodes] = useState([]);
   const [relations, setRelations] = useState([]);
-  const [apiHealthy, setApiHealthy] = useState(null);
+  const [healthStatus, setHealthStatus] = useState('checking'); // 'online' | 'offline' | 'checking'
 
   const [srcId, setSrcId] = useState('1960-0040');
   const [dstId, setDstId] = useState('1961-0030');
@@ -55,38 +55,55 @@ export default function App() {
   const [predictionResult, setPredictionResult] = useState(null);
   const [lastRequest, setLastRequest] = useState(null);
 
+  // Health check query
+  const checkHealth = useCallback(async (base) => {
+    try {
+      const hRes = await fetch(`${base}/health`);
+      if (hRes.ok) {
+        const hData = await hRes.json();
+        if (hData && hData.status === 'healthy') {
+          setHealthStatus('online');
+          return true;
+        }
+      }
+      setHealthStatus('offline');
+      return false;
+    } catch {
+      setHealthStatus('offline');
+      return false;
+    }
+  }, []);
+
   // Fetch /health, /nodes, and /relations on mount or when API URL changes
   useEffect(() => {
     async function loadMetadata() {
       setLoadingMeta(true);
       setError(null);
+      setHealthStatus('checking');
+
+      const base = apiUrl.replace(/\/+$/, '');
+
+      // Execute health check
+      const isHealthy = await checkHealth(base);
+
+      // Fetch Nodes & Relations
       try {
-        // Clean trailing slash
-        const base = apiUrl.replace(/\/+$/, '');
+        const [nodesRes, relsRes] = await Promise.all([
+          fetch(`${base}/nodes`),
+          fetch(`${base}/relations`)
+        ]);
 
-        // 1. Health check
-        try {
-          const hRes = await fetch(`${base}/health`);
-          if (hRes.ok) {
-            setApiHealthy(true);
-          } else {
-            setApiHealthy(false);
-          }
-        } catch {
-          setApiHealthy(false);
-        }
-
-        // 2. Fetch Nodes
-        const nodesRes = await fetch(`${base}/nodes`);
         if (!nodesRes.ok) throw new Error(`Failed to load nodes: ${nodesRes.statusText}`);
-        const nodesData = await nodesRes.json();
-        setNodes(nodesData.nodes || []);
-
-        // 3. Fetch Relations
-        const relsRes = await fetch(`${base}/relations`);
         if (!relsRes.ok) throw new Error(`Failed to load relations: ${relsRes.statusText}`);
+
+        const nodesData = await nodesRes.json();
         const relsData = await relsRes.json();
+
+        setNodes(nodesData.nodes || []);
         setRelations(relsData.relations || []);
+
+        // If nodes & relations loaded, backend is online
+        setHealthStatus('online');
 
         // Set default relation if available
         if (relsData.relations && relsData.relations.length > 0 && !relsData.relations.includes(relation)) {
@@ -95,13 +112,16 @@ export default function App() {
       } catch (err) {
         console.error('Failed to load API metadata:', err);
         setError(`Unable to connect to backend API at ${apiUrl}. Please check if the server is awake.`);
+        if (!isHealthy) {
+          setHealthStatus('offline');
+        }
       } finally {
         setLoadingMeta(false);
       }
     }
 
     loadMetadata();
-  }, [apiUrl]);
+  }, [apiUrl, checkHealth]);
 
   const handlePredict = async (e) => {
     e?.preventDefault();
@@ -137,6 +157,7 @@ export default function App() {
 
       setPredictionResult(data);
       setLastRequest(payload);
+      setHealthStatus('online');
     } catch (err) {
       console.error('Prediction request error:', err);
       setError(err.message || 'An unexpected error occurred during link prediction.');
@@ -167,8 +188,30 @@ export default function App() {
       {/* Header */}
       <header className="header">
         <div className="badge-header">
-          <span className="badge-dot" style={{ backgroundColor: apiHealthy ? '#34d399' : '#f87171', boxShadow: apiHealthy ? '0 0 8px #34d399' : '0 0 8px #f87171' }} />
-          <span>{apiHealthy ? 'API Connected' : (apiHealthy === false ? 'API Offline / Cold' : 'Checking API...')}</span>
+          <span
+            className="badge-dot"
+            style={{
+              backgroundColor:
+                healthStatus === 'online'
+                  ? '#34d399'
+                  : healthStatus === 'offline'
+                  ? '#f87171'
+                  : '#fbbf24',
+              boxShadow:
+                healthStatus === 'online'
+                  ? '0 0 8px #34d399'
+                  : healthStatus === 'offline'
+                  ? '0 0 8px #f87171'
+                  : '0 0 8px #fbbf24'
+            }}
+          />
+          <span>
+            {healthStatus === 'online'
+              ? 'API ONLINE'
+              : healthStatus === 'offline'
+              ? 'API OFFLINE'
+              : 'API COLD / CHECKING'}
+          </span>
         </div>
 
         <h1 className="title">TemporalGNN Disaster Cascade Prediction</h1>
