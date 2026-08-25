@@ -4,5 +4,11 @@ __pycache__/
 *$py.class
 Final_stuff.ipynb
 .env
+.env.local
 .DS_Store
 *.tar
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/

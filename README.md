@@ -8,9 +8,11 @@ app_port: 7860
 pinned: false
 ---
 
-# TemporalGNN Disaster Cascade Prediction API
+# TemporalGNN Disaster Cascade Prediction
 
-An inference-only microservice for predicting disaster cascade links between historical disaster events using a trained **Temporal Graph Neural Network (`TemporalGNN`)**.
+An end-to-end full-stack solution for predicting disaster cascade links between historical disaster events using a trained **Temporal Graph Neural Network (`TemporalGNN`)**. Includes a FastAPI backend microservice and a React + Vite dashboard.
+
+---
 
 ## 📌 Model Constraints & Supported Inputs
 - **Known Nodes Only**: The model operates strictly over the **1,970 disaster event nodes** present in the training graph.
@@ -42,48 +44,45 @@ An inference-only microservice for predicting disaster cascade links between his
 
 ---
 
-## 💻 Local Testing & Usage
+## 🖥️ Running the React Frontend
 
-### 1. Run with Uvicorn
+The frontend is located in `frontend/` and communicates with the backend API via `VITE_API_URL`.
+
+### 1. Local Setup & Run
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open **`http://localhost:5173`** in your browser.
+
+### 2. Environment Variables
+- `VITE_API_URL`: Base URL of the FastAPI backend (defaults to `https://tgnn-inference.onrender.com` or `http://localhost:8000`).
+
+---
+
+## 🌐 Deploying Frontend to Render (Static Site)
+
+1. Create a **New Static Site** on Render.
+2. Connect repository: `https://github.com/yakshitt/tgnn-inference`
+3. Configure settings:
+   - **Root Directory**: `frontend`
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `dist`
+4. Add Environment Variable:
+   - `VITE_API_URL`: `https://tgnn-inference.onrender.com`
+
+---
+
+## 💻 Running the Backend Locally
 
 ```powershell
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Or using `uv`:
-```powershell
-uv run --with fastapi --with uvicorn --with torch uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-
----
-
-### 2. Sample Requests
-
-#### Health Check
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/health" -Method Get
-```
+### Sample Prediction Request (cURL)
 ```bash
-curl -X GET "http://127.0.0.1:8000/health"
-```
-
-#### Predict Link (PowerShell)
-```powershell
-$body = @{
-    src_id = "1960-0040"
-    dst_id = "1961-0030"
-    relation = "CausalRelation"
-} | ConvertTo-Json
-
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" `
-    -Method Post `
-    -ContentType "application/json" `
-    -Body $body
-```
-
-#### Predict Link (cURL)
-```bash
-curl -X POST "http://127.0.0.1:8000/predict" \
+curl -X POST "https://tgnn-inference.onrender.com/predict" \
      -H "Content-Type: application/json" \
      -d '{
        "src_id": "1960-0040",
@@ -92,19 +91,10 @@ curl -X POST "http://127.0.0.1:8000/predict" \
      }'
 ```
 
-#### Expected Response
+**Expected Response**:
 ```json
 {
   "probability": 0.5577905178070068,
   "verdict": true
 }
-```
-
----
-
-### 3. Docker Deployment
-
-```bash
-docker build -t tgnn-inference .
-docker run -p 7860:7860 tgnn-inference
 ```
